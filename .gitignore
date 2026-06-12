@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+.env.local
+
+# Uploads
+backend/uploads/planes/*
+backend/uploads/evidencias/*
+!backend/uploads/planes/.gitkeep
+!backend/uploads/evidencias/.gitkeep
+
+# DB
+*.sqlite3
