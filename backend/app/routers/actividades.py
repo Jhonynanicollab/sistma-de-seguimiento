@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from app.db.database import get_db
@@ -49,7 +49,9 @@ def listar_actividades(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_user)
 ):
-    query = db.query(Actividad)
+    query = db.query(Actividad).options(
+        joinedload(Actividad.plan).joinedload(PlanTrabajo.direccion)
+    )
     if plan_id:
         query = query.filter(Actividad.plan_id == plan_id)
     if estado:

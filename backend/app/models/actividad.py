@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 import enum
+from typing import Optional
 
 from app.db.database import Base
 
@@ -33,3 +34,11 @@ class Actividad(Base):
     # Relaciones
     plan       = relationship("PlanTrabajo", back_populates="actividades")
     evidencias = relationship("Evidencia", back_populates="actividad", cascade="all, delete-orphan")
+
+    @property
+    def plan_nombre(self) -> Optional[str]:
+        return self.plan.nombre if self.plan else None
+
+    @property
+    def direccion_nombre(self) -> Optional[str]:
+        return self.plan.direccion.nombre if self.plan and self.plan.direccion else None

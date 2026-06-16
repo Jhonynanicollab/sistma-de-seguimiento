@@ -84,6 +84,7 @@ def login(
     form:  OAuth2PasswordRequestForm = Depends(),
     db:    Session                   = Depends(get_db)
 ):
+    print(f"[DEBUG] Intento de login: usuario='{form.username}', password='{form.password}'")
     usuario = db.query(Usuario).filter(Usuario.email == form.username).first()
 
     if not usuario or not verify_password(form.password, usuario.hashed_password):

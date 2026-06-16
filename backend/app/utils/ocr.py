@@ -35,8 +35,19 @@ def extraer_texto_pdf(ruta_pdf: str) -> str:
     Por cada página decide si usar extracción directa u OCR.
     Retorna el texto completo concatenado.
     """
+    texto, _ = extraer_datos_pdf(ruta_pdf)
+    return texto
+
+
+def extraer_datos_pdf(ruta_pdf: str) -> tuple[str, list[dict]]:
+    """
+    Extrae todo el texto de un PDF y retorna:
+    - El texto completo concatenado (para búsqueda/extracción).
+    - Un listado de diccionarios con el texto detallado por página.
+    """
     doc = fitz.open(ruta_pdf)
-    paginas = []
+    paginas_texto = []
+    paginas_detalles = []
 
     for num, page in enumerate(doc, start=1):
         texto = extraer_texto_pagina_directa(page)
@@ -45,7 +56,12 @@ def extraer_texto_pdf(ruta_pdf: str) -> str:
             # Página escaneada — aplicar OCR
             texto = extraer_texto_pagina_ocr(page)
 
-        paginas.append(f"--- Página {num} ---\n{texto}")
+        paginas_texto.append(f"--- Página {num} ---\n{texto}")
+        paginas_detalles.append({
+            "pagina": num,
+            "texto": texto
+        })
 
     doc.close()
-    return "\n\n".join(paginas)
+    return "\n\n".join(paginas_texto), paginas_detalles
+

@@ -1,7 +1,7 @@
 -- schema.sql - Esquema de base de datos
 -- ============================================================
 -- SISTEMA DE SEGUIMIENTO PARA PLAN DE TRABAJO INSTITUCIONAL
--- Universidad Nacional del Altiplano - FIEI
+-- Universidad Nacional del Altiplano - FINESI
 -- schema.sql - Estructura de base de datos PostgreSQL
 -- ============================================================
 
@@ -43,7 +43,7 @@ CREATE TABLE direcciones (
     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE direcciones IS 'Direcciones, oficinas y comisiones de la FIEI que presentan planes de trabajo';
+COMMENT ON TABLE direcciones IS 'Direcciones, oficinas y comisiones de la FINESI que presentan planes de trabajo';
 
 -- ============================================================
 -- TABLA: planes_trabajo
@@ -165,12 +165,12 @@ COMMENT ON VIEW v_indicadores_cumplimiento IS 'Indicadores de cumplimiento por p
 
 -- Usuario administrador inicial (password: admin123 — cambiar en producción)
 INSERT INTO usuarios (nombre, apellidos, email, password_hash, rol) VALUES
-('Admin', 'Sistema', 'admin@fiei.unap.edu.pe',
+('Admin', 'Sistema', 'admin@finesi.unap.edu.pe',
  '$2b$12$placeholder_hash_cambiar_en_produccion', 'admin'),
-('Oficina', 'Acreditación', 'acreditacion@fiei.unap.edu.pe',
+('Oficina', 'Acreditación', 'acreditacion@finesi.unap.edu.pe',
  '$2b$12$placeholder_hash_cambiar_en_produccion', 'acreditacion');
 
--- Direcciones y oficinas de ejemplo (ajustar según estructura real de la FIEI)
+-- Direcciones y oficinas de ejemplo (ajustar según estructura real de la FINESI)
 INSERT INTO direcciones (nombre, codigo, tipo) VALUES
 ('Decanato',                                'DEC',      'decanato'),
 ('Dirección de Escuela Profesional',        'DIR-EP',   'direccion'),

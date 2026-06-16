@@ -38,6 +38,8 @@ class ActividadResponse(BaseModel):
     estado:       EstadoActividad
     meta:         Optional[str]  = None
     avance:       int
+    plan_nombre:  Optional[str]  = None
+    direccion_nombre: Optional[str] = None
 
     class Config:
         from_attributes = True

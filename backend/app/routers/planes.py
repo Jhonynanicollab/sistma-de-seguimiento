@@ -11,7 +11,7 @@ from app.schemas.plan_trabajo import PlanTrabajoCreate, PlanTrabajoUpdate, PlanT
 from app.schemas.actividad import ActividadResponse
 from app.routers.auth import get_current_user, require_admin
 from app.services import pdf_processor, actividad_extractor
-from app.utils.ocr import extraer_texto_pdf
+from app.utils.ocr import extraer_texto_pdf, extraer_datos_pdf
 from app.config import UPLOAD_PLANES
 import os
 
@@ -147,23 +147,51 @@ async def subir_pdf_plan(
         )
         ruta_completa = os.path.normpath(ruta_completa)
         try:
-            texto = extraer_texto_pdf(ruta_completa)
-            actividades_detectadas = actividad_extractor.extraer_actividades(texto)
+            texto, paginas_detalles = extraer_datos_pdf(ruta_completa)
+            actividades_detectadas = actividad_extractor.extraer_actividades(ruta_completa, texto)
 
             for act in actividades_detectadas:
                 nueva = Actividad(
                     plan_id      = plan_id,
-                    nombre       = act.nombre,
-                    responsable  = act.responsable,
+                    nombre       = act.nombre[:300],  # Truncar a la capacidad de la columna (300)
+                    responsable  = act.responsable[:200] if act.responsable else None,  # Truncar a 200
                     fecha_inicio = act.fecha_inicio,
                     fecha_fin    = act.fecha_fin,
-                    meta         = act.meta,
+                    meta         = act.meta[:300] if act.meta else None,  # Truncar a 300
                 )
                 db.add(nueva)
 
             db.commit()
-        except Exception:
-            # La extracción es opcional — no falla si hay error en el PDF
+
+            # Guardar toda la extracción (raspado) en formato JSON al costado del PDF
+            import json
+            plan_json_data = {
+                "plan_id": plan_id,
+                "nombre_plan": plan.nombre,
+                "anio": plan.anio,
+                "archivo_pdf": ruta,
+                "total_paginas": len(paginas_detalles),
+                "paginas": paginas_detalles,
+                "actividades_extraidas": [
+                    {
+                        "nombre": act.nombre,
+                        "responsable": act.responsable,
+                        "fecha_inicio": act.fecha_inicio.isoformat() if act.fecha_inicio else None,
+                        "fecha_fin": act.fecha_fin.isoformat() if act.fecha_fin else None,
+                        "meta": act.meta
+                    }
+                    for act in actividades_detectadas
+                ]
+            }
+
+            json_filename = f"plan_{plan_id}_extracted.json"
+            ruta_json = os.path.join(os.path.dirname(ruta_completa), json_filename)
+            with open(ruta_json, "w", encoding="utf-8") as jf:
+                json.dump(plan_json_data, jf, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            db.rollback()  # Liberar la sesión del estado de error y revertir transacciones pendientes
+            print(f"Error en extraccion/guardado JSON: {e}")
             pass
 
     return plan
