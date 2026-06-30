@@ -1,0 +1,54 @@
+@startuml
+' Diagrama de Actividades para el Flujo del Sistema de Seguimiento PTI (FINESI)
+' Este diagrama se puede copiar y pegar directamente en https://www.planttext.com/ para generar el gráfico.
+
+start
+:Jefe de Oficina selecciona su Dirección;
+:Registra un nuevo Plan de Trabajo (Año, Nombre);
+:Carga el documento Plan de Trabajo en PDF;
+
+partition "Procesamiento de PDF e Inteligencia de Extracción" {
+  if (¿El PDF contiene texto digital?) then (Sí)
+    :Extraer texto directamente usando PyMuPDF/pdfplumber;
+  else (No, es escaneado/imagen)
+    :Convertir páginas del PDF a imágenes (escala de grises);
+    :Aplicar mejora de nitidez (Contraste 2.0x con Pillow);
+    :Ejecutar PyTesseract OCR en idioma español;
+    :Extraer texto plano de la imagen procesada;
+  endif
+
+  if (¿Se detectan tablas estructuradas en el PDF?) then (Sí)
+    :Extraer actividades mapeando columnas de tabla (Actividad, Responsable, Meta);
+  else (No, es texto plano/OCR)
+    :Aplicar expresiones regulares (Regex) con soporte de viñetas (- , * , •, incisos);
+    :Separar actividades por bloques de texto limitados;
+  endif
+}
+
+partition "Validación y Ajustes Manuales (CRUD)" {
+  :Guardar actividades en estado "Pendiente" asociadas al Plan;
+  :Visualizar actividades extraídas en la tabla del Plan de Trabajo;
+  
+  if (¿Se detectaron errores o faltan actividades?) then (Sí)
+    split
+      :Editar actividad (modificar Nombre, Responsable, Meta);
+    split-again
+      :Eliminar actividades mal detectadas o duplicadas;
+    split-again
+      :Agregar actividades manualmente mediante el formulario;
+    end split
+  else (No)
+    :Mantener registros originales extraídos;
+  endif
+}
+
+partition "Seguimiento y Ejecución de Actividades" {
+  :Jefe de Oficina ejecuta las actividades programadas;
+  :Jefe de Oficina actualiza el avance (%) y estado (En Proceso / Completada);
+  :Subir archivo PDF de evidencia para certificar la ejecución;
+  :El sistema recalcula dinámicamente los porcentajes de cumplimiento del Plan;
+  :El sistema actualiza el Dashboard General con gráficos de barras y circulares;
+}
+
+stop
+@enduml

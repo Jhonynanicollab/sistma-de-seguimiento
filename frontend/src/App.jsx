@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider }    from './context/AuthContext'
+import { ThemeProvider }   from './context/ThemeContext'
 import PrivateRoute        from './components/PrivateRoute'
 import Layout              from './components/Layout'
+import Home                from './pages/Home'
 import Login               from './pages/Login'
 import Dashboard           from './pages/Dashboard'
 import Planes              from './pages/Planes'
@@ -14,33 +16,34 @@ import './index.css'
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Página pública */}
-          <Route path="/login" element={<Login />} />
+      <ThemeProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Páginas públicas */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
 
-          {/* Páginas privadas con layout */}
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <Layout />
-              </PrivateRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard"         element={<Dashboard />} />
-            <Route path="planes"            element={<Planes />} />
-            <Route path="planes/:id"        element={<PlanDetalle />} />
-            <Route path="actividades"       element={<Actividades />} />
-            <Route path="actividades/:id"   element={<ActividadDetalle />} />
-            <Route path="direcciones"       element={<Direcciones />} />
-          </Route>
+            {/* Páginas privadas con layout */}
+            <Route
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            >
+              <Route path="dashboard"         element={<Dashboard />} />
+              <Route path="planes"            element={<Planes />} />
+              <Route path="planes/:id"        element={<PlanDetalle />} />
+              <Route path="actividades"       element={<Actividades />} />
+              <Route path="actividades/:id"   element={<ActividadDetalle />} />
+              <Route path="direcciones"       element={<Direcciones />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Fallback a inicio */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   )
 }

@@ -1,0 +1,58 @@
+  @startuml
+  ' Diagrama de Casos de Uso para el Sistema de Seguimiento PTI (FINESI)
+  ' Este diagrama se puede copiar y pegar directamente en https://www.planttext.com/ para generar el gráfico.
+
+  skinparam actorStyle awesome
+  left to right direction
+
+  actor "Oficina de Acreditación (Admin)" as admin
+  actor "Jefe de Oficina / Comisión (Editor)" as editor
+  actor "Usuario Consulta (Lector)" as lector
+
+  rectangle "Sistema de Seguimiento PTI" {
+    usecase "Iniciar Sesión" as UC_Login
+    usecase "Registrar Dirección / Oficina" as UC_RegDir
+    usecase "Registrar Plan de Trabajo" as UC_RegPlan
+    usecase "Cargar Plan de Trabajo (PDF)" as UC_UploadPDF
+    usecase "Extraer Actividades (OCR/Texto)" as UC_ExtractAct
+    usecase "Validar Actividades Extraídas" as UC_ValAct
+    usecase "Agregar Actividad Manualmente" as UC_AddActMan
+    usecase "Modificar Actividad (Nombre, Responsable, Estado, etc.)" as UC_EditAct
+    usecase "Eliminar Actividad" as UC_DelAct
+    usecase "Registrar Evidencia (PDF)" as UC_UploadEvid
+    usecase "Actualizar Estado/Avance de Actividad" as UC_UpdateAct
+    usecase "Visualizar Dashboard y KPIs" as UC_ViewDash
+    usecase "Generar Reporte de Cumplimiento (PDF)" as UC_GenRep
+  }
+
+  ' Relaciones del Rol Lector (Solo consulta)
+  lector --> UC_Login
+  lector --> UC_ViewDash
+
+  ' Relaciones del Rol Editor (Jefe de Oficina)
+  editor --> UC_Login
+  editor --> UC_RegPlan
+  editor --> UC_UploadPDF
+  editor --> UC_UploadEvid
+  editor --> UC_UpdateAct
+  editor --> UC_ViewDash
+
+  ' Relaciones del Rol Administrador (Oficina de Acreditación)
+  admin --> UC_Login
+  admin --> UC_RegDir
+  admin --> UC_RegPlan
+  admin --> UC_UploadPDF
+  admin --> UC_ExtractAct
+  admin --> UC_ValAct
+  admin --> UC_AddActMan
+  admin --> UC_EditAct
+  admin --> UC_DelAct
+  admin --> UC_UploadEvid
+  admin --> UC_UpdateAct
+  admin --> UC_ViewDash
+  admin --> UC_GenRep
+
+  ' Dependencias de Casos de Uso
+  UC_UploadPDF ..> UC_ExtractAct : <<include>>
+  UC_ExtractAct ..> UC_ValAct : <<include>>
+  @enduml

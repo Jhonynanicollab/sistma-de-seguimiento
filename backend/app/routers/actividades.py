@@ -90,8 +90,11 @@ def actualizar_actividad(
 def eliminar_actividad(
     actividad_id: int,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin)
+    current_user: Usuario = Depends(get_current_user)
 ):
+    if current_user.rol == RolUsuario.lector:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Sin permisos para eliminar actividades")
     actividad = _get_actividad_or_404(actividad_id, db)
     db.delete(actividad)
     db.commit()

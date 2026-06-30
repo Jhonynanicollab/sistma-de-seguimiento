@@ -1,0 +1,82 @@
+@startuml
+' Diagrama Entidad-Relación (DER) del Sistema de Seguimiento PTI (PostgreSQL)
+' Este diagrama se puede copiar y pegar directamente en https://www.planttext.com/ para generar el gráfico.
+
+!define table(x) class x << (T,#F0D2B4) >>
+!define primary_key(x) <b>x</b>
+!define foreign_key(x) <i>x</i>
+
+skinparam class {
+  BackgroundColor White
+  ArrowColor Black
+  BorderColor Black
+}
+
+table(direcciones) {
+  + primary_key(id) : INTEGER [PK]
+  --
+  nombre : VARCHAR(200) [NOT NULL]
+  descripcion : TEXT
+}
+
+table(usuarios) {
+  + primary_key(id) : INTEGER [PK]
+  --
+  nombre : VARCHAR(200) [NOT NULL]
+  email : VARCHAR(200) [NOT NULL, UNIQUE]
+  hashed_password : VARCHAR(255) [NOT NULL]
+  rol : Enum(admin, editor, lector) [NOT NULL]
+  activo : BOOLEAN [DEFAULT TRUE]
+}
+
+table(planes_trabajo) {
+  + primary_key(id) : INTEGER [PK]
+  --
+  + foreign_key(direccion_id) : INTEGER [FK -> direcciones.id, NOT NULL]
+  nombre : VARCHAR(255) [NOT NULL]
+  anio : INTEGER [NOT NULL]
+  archivo_pdf : VARCHAR(255)
+  fecha_registro : TIMESTAMP [DEFAULT UTC_NOW]
+}
+
+table(actividades) {
+  + primary_key(id) : INTEGER [PK]
+  --
+  + foreign_key(plan_id) : INTEGER [FK -> planes_trabajo.id, NOT NULL]
+  nombre : VARCHAR(300) [NOT NULL]
+  descripcion : TEXT
+  responsable : VARCHAR(200)
+  fecha_inicio : DATE
+  fecha_fin : DATE
+  estado : Enum(pendiente, en_proceso, completada, cancelada) [DEFAULT 'pendiente', NOT NULL]
+  meta : VARCHAR(300)
+  avance : INTEGER [DEFAULT 0]
+}
+
+table(evidencias) {
+  + primary_key(id) : INTEGER [PK]
+  --
+  + foreign_key(actividad_id) : INTEGER [FK -> actividades.id, NOT NULL]
+  descripcion : TEXT
+  archivo : VARCHAR(255)
+  fecha_carga : TIMESTAMP [DEFAULT UTC_NOW]
+}
+
+' Relaciones con multiplicidad
+direcciones "1" -- "0..*" planes_trabajo : "tiene asignados"
+planes_trabajo "1" -- "0..*" actividades : "se desglosa en"
+actividades "1" -- "0..*" evidencias : "se respalda con"
+
+note right of usuarios
+  El campo "rol" determina el control de accesos.
+  admin: Control total
+  editor: Oficina emisora (crear y subir)
+  lector: Consulta de gráficos
+end note
+
+note right of actividades
+  El estado "completada" con avance 100
+  influye directamente en el recálculo
+  automático de indicadores.
+end note
+@enduml

@@ -1,0 +1,90 @@
+@startuml
+' Diagrama de Clases Estático para el Sistema de Seguimiento PTI (FINESI)
+' Este diagrama se puede copiar y pegar directamente en https://www.planttext.com/ para generar el gráfico.
+
+enum RolUsuario {
+  admin
+  editor
+  lector
+}
+
+enum EstadoActividad {
+  pendiente
+  en_proceso
+  completada
+  cancelada
+}
+
+class Usuario {
+  +int id
+  +String nombre
+  +String email
+  +String hashed_password
+  +RolUsuario rol
+  +Boolean activo
+}
+
+class Direccion {
+  +int id
+  +String nombre
+  +String descripcion
+  +List<PlanTrabajo> planes
+}
+
+class PlanTrabajo {
+  +int id
+  +int direccion_id
+  +String nombre
+  +int anio
+  +String archivo_pdf
+  +DateTime fecha_registro
+  +Direccion direccion
+  +List<Actividad> actividades
+}
+
+class Actividad {
+  +int id
+  +int plan_id
+  +String nombre
+  +String descripcion
+  +String responsable
+  +Date fecha_inicio
+  +Date fecha_fin
+  +EstadoActividad estado
+  +String meta
+  +int avance
+  +PlanTrabajo plan
+  +List<Evidencia> evidencias
+  +String plan_nombre
+  +String direccion_nombre
+}
+
+class Evidencia {
+  +int id
+  +int actividad_id
+  +String descripcion
+  +String archivo
+  +DateTime fecha_carga
+  +Actividad actividad
+}
+
+' Relaciones entre las clases
+Usuario --> RolUsuario : posee un rol
+Actividad --> EstadoActividad : posee un estado
+
+Direccion "1" *-- "0..*" PlanTrabajo : contiene >
+PlanTrabajo "1" *-- "0..*" Actividad : contiene >
+Actividad "1" *-- "0..*" Evidencia : posee evidencias de respaldo >
+
+note top of Usuario
+  Representa las credenciales de
+  las distintas oficinas y
+  administradores.
+end note
+
+note top of Actividad
+  Una actividad tiene propiedades calculadas
+  como "plan_nombre" y "direccion_nombre"
+  para simplificar vistas en el frontend.
+end note
+@enduml

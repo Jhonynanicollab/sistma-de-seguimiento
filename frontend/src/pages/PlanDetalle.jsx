@@ -20,6 +20,11 @@ export default function PlanDetalle() {
   const [newAct,    setNewAct]    = useState({ nombre: '', responsable: '', fecha_inicio: '', fecha_fin: '' })
   const [savingAct, setSavingAct] = useState(false)
   const [actErr,    setActErr]    = useState('')
+  const [editingAct, setEditingAct] = useState(null)
+  const [showEditAct, setShowEditAct] = useState(false)
+  const [editActForm, setEditActForm] = useState({ nombre: '', responsable: '', fecha_inicio: '', fecha_fin: '', meta: '', avance: 0 })
+  const [savingEditAct, setSavingEditAct] = useState(false)
+  const [editActErr, setEditActErr] = useState('')
   const fileRef = useRef()
 
   const canEdit = user?.rol === 'admin' || user?.rol === 'editor'
@@ -71,11 +76,68 @@ export default function PlanDetalle() {
       setActs(prev => [...prev, data])
       setShowNewAct(false)
       setNewAct({ nombre: '', responsable: '', fecha_inicio: '', fecha_fin: '' })
+      // reload indicators
+      const indRes = await dashApi.getPorPlan(id).catch(() => ({ data: null }))
+      setInd(indRes.data)
     } catch (err) {
       const detail = err.response?.data?.detail
       setActErr(typeof detail === 'string' ? detail : (Array.isArray(detail) ? detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join(', ') : 'Error al crear actividad'))
     } finally {
       setSavingAct(false)
+    }
+  }
+
+  const handleStartEdit = (act) => {
+    setEditingAct(act)
+    setEditActForm({
+      nombre: act.nombre || '',
+      responsable: act.responsable || '',
+      fecha_inicio: act.fecha_inicio ? act.fecha_inicio.slice(0, 10) : '',
+      fecha_fin: act.fecha_fin ? act.fecha_fin.slice(0, 10) : '',
+      meta: act.meta || '',
+      avance: act.avance ?? 0
+    })
+    setEditActErr('')
+    setShowEditAct(true)
+  }
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault()
+    setEditActErr('')
+    setSavingEditAct(true)
+    try {
+      const { data } = await actApi.actualizar(editingAct.id, {
+        nombre: editActForm.nombre,
+        responsable: editActForm.responsable || null,
+        fecha_inicio: editActForm.fecha_inicio || null,
+        fecha_fin: editActForm.fecha_fin || null,
+        meta: editActForm.meta || null,
+        avance: +editActForm.avance
+      })
+      setActs(prev => prev.map(a => a.id === editingAct.id ? { ...a, ...data } : a))
+      // reload indicators
+      const indRes = await dashApi.getPorPlan(id).catch(() => ({ data: null }))
+      setInd(indRes.data)
+      setShowEditAct(false)
+      setEditingAct(null)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setEditActErr(typeof detail === 'string' ? detail : 'Error al guardar cambios')
+    } finally {
+      setSavingEditAct(false)
+    }
+  }
+
+  const handleDeleteAct = async (actId) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta actividad? Esta acción no se puede deshacer.')) return
+    try {
+      await actApi.eliminar(actId)
+      setActs(prev => prev.filter(a => a.id !== actId))
+      // reload indicators
+      const indRes = await dashApi.getPorPlan(id).catch(() => ({ data: null }))
+      setInd(indRes.data)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar la actividad')
     }
   }
 
@@ -232,7 +294,29 @@ export default function PlanDetalle() {
                   <td><BadgeEstado estado={act.estado} /></td>
                   <td><BadgeEstado estado={act.origen} /></td>
                   <td>
-                    <Link to={`/actividades/${act.id}`} className="btn btn-ghost btn-sm">Ver →</Link>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <Link to={`/actividades/${act.id}`} className="btn btn-ghost btn-sm" title="Ver detalle">👁️ Ver</Link>
+                      {canEdit && (
+                        <>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--violet-light)', padding: '2px 8px' }}
+                            onClick={() => handleStartEdit(act)}
+                            title="Editar actividad"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--red)', padding: '2px 8px' }}
+                            onClick={() => handleDeleteAct(act.id)}
+                            title="Eliminar actividad"
+                          >
+                            🗑️
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -299,6 +383,88 @@ export default function PlanDetalle() {
               onChange={e => setNewAct(a => ({ ...a, fecha_fin: e.target.value }))}
             />
           </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal editar actividad ────────────────────────── */}
+      <Modal
+        open={showEditAct}
+        onClose={() => { setShowEditAct(false); setEditActErr('') }}
+        title="Editar Actividad"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowEditAct(false)}>Cancelar</button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveEdit}
+              disabled={savingEditAct || !editActForm.nombre.trim()}
+            >
+              {savingEditAct ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Guardando…</> : 'Guardar cambios'}
+            </button>
+          </>
+        }
+      >
+        {editActErr && <div className="login-error" style={{ marginBottom: 12 }}>⚠️ {editActErr}</div>}
+        <div className="form-group">
+          <label className="form-label">Nombre *</label>
+          <input
+            className="form-input"
+            value={editActForm.nombre}
+            onChange={e => setEditActForm(a => ({ ...a, nombre: e.target.value }))}
+            placeholder="Descripción de la actividad"
+            required
+            autoFocus
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Responsable</label>
+          <input
+            className="form-input"
+            value={editActForm.responsable}
+            onChange={e => setEditActForm(a => ({ ...a, responsable: e.target.value }))}
+            placeholder="Nombre del responsable"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Meta</label>
+          <input
+            className="form-input"
+            value={editActForm.meta}
+            onChange={e => setEditActForm(a => ({ ...a, meta: e.target.value }))}
+            placeholder="Meta o indicador"
+          />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Fecha inicio</label>
+            <input
+              className="form-input"
+              type="date"
+              value={editActForm.fecha_inicio}
+              onChange={e => setEditActForm(a => ({ ...a, fecha_inicio: e.target.value }))}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fecha fin</label>
+            <input
+              className="form-input"
+              type="date"
+              value={editActForm.fecha_fin}
+              onChange={e => setEditActForm(a => ({ ...a, fecha_fin: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Porcentaje de Avance ({editActForm.avance}%)</label>
+          <input
+            className="form-input"
+            type="range"
+            min="0"
+            max="100"
+            value={editActForm.avance}
+            onChange={e => setEditActForm(a => ({ ...a, avance: +e.target.value }))}
+            style={{ width: '100%', height: '6px', background: 'var(--border)', accentColor: 'var(--violet)' }}
+          />
         </div>
       </Modal>
     </div>

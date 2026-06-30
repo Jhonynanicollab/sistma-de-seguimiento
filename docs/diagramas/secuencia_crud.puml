@@ -1,0 +1,47 @@
+@startuml
+' Diagrama de Secuencia para la Gestión CRUD y Recálculo de Indicadores
+' Este diagrama se puede copiar y pegar directamente en https://www.planttext.com/ para generar el gráfico.
+
+autonumber
+actor "Jefe de Oficina / Admin" as User
+boundary "Frontend (PlanDetalle.jsx / ActividadDetalle.jsx)" as Front
+control "Backend API (actividades.py)" as API
+control "Indicadores Service (indicadores.py)" as IndServ
+database "PostgreSQL Database" as DB
+
+== Flujo de Edición de Actividad ==
+User -> Front : Modifica campos (Nombre, Responsable, Meta, Estado, Avance) en modal y presiona "Guardar"
+Front -> API : PUT /api/actividades/{id} (JSON body)
+activate API
+
+API -> DB : UPDATE actividades SET nombre, responsable, meta, estado, avance WHERE id
+API -> IndServ : recalcular_porcentajes_plan(plan_id)
+activate IndServ
+IndServ -> DB : Consultar todas las actividades asociadas al plan
+DB --> IndServ : Lista de actividades (estado, avance)
+IndServ -> IndServ : Calcular porcentaje cumplimiento y avance promedio
+IndServ --> API : Retorna nuevos indicadores del plan
+deactivate IndServ
+
+API --> Front : Retorna JSON con la actividad actualizada e indicadores recalculados
+deactivate API
+Front --> User : Recarga tabla e indicadores en tiempo real (efecto reactivo de React)
+
+== Flujo de Eliminación de Actividad ==
+User -> Front : Hace clic en "Eliminar" y confirma en ventana de advertencia
+Front -> API : DELETE /api/actividades/{id}
+activate API
+
+API -> DB : DELETE FROM actividades WHERE id
+API -> IndServ : recalcular_porcentajes_plan(plan_id)
+activate IndServ
+IndServ -> DB : Consultar actividades restantes del plan
+DB --> IndServ : Lista de actividades restantes
+IndServ -> IndServ : Recalcular métricas sin el elemento eliminado
+IndServ --> API : Retorna nuevos indicadores del plan
+deactivate IndServ
+
+API --> Front : Retorna JSON confirmando eliminación e indicadores actualizados
+deactivate API
+Front --> User : Elimina la fila de la tabla y actualiza estadísticas en pantalla
+@enduml

@@ -1,0 +1,58 @@
+@startuml
+' Diagrama de Secuencia para la Carga de Planes y Extracción Automática (OCR / Texto)
+' Este diagrama se puede copiar y pegar directamente en https://www.planttext.com/ para generar el gráfico.
+
+autonumber
+actor "Jefe de Oficina / Admin" as User
+boundary "Frontend (PlanDetalle.jsx)" as Front
+control "Backend API (planes.py)" as API
+control "PDF Processor (pdf_processor)" as PDFProc
+control "OCR Engine (ocr.py)" as OCR
+control "Activity Extractor (actividad_extractor)" as Extractor
+database "PostgreSQL Database" as DB
+
+== Proceso de Carga y Procesamiento ==
+User -> Front : Selecciona archivo PDF y hace clic en "Cargar Plan"
+Front -> API : POST /api/planes/{id}/upload-pdf (FormData)
+activate API
+
+API -> API : Guardar archivo físico en carpeta backend/uploads/planes/
+API -> PDFProc : extraer_datos_pdf(archivo_path)
+activate PDFProc
+
+PDFProc -> PDFProc : Contar caracteres legibles directamente en el PDF
+alt PDF Digital (Caracteres > UMBRAL)
+  PDFProc -> PDFProc : Extraer texto directamente con PyMuPDF
+else PDF Escaneado (Caracteres <= UMBRAL)
+  PDFProc -> OCR : procesar_pdf_con_ocr(archivo_path)
+  activate OCR
+  OCR -> OCR : Convertir páginas de PDF a imágenes (escala de grises)
+  OCR -> OCR : Incrementar nitidez (Contraste 2.0x con Pillow)
+  OCR -> OCR : Ejecutar PyTesseract (spa.traineddata)
+  OCR --> PDFProc : Retorna texto plano digitalizado
+  deactivate OCR
+end
+PDFProc --> API : Retorna texto completo extraído y tipo (digital/escaneado)
+deactivate PDFProc
+
+API -> Extractor : extraer_actividades(texto, es_tabla_nativa)
+activate Extractor
+alt Se detectan tablas con fitz.find_tables()
+  Extractor -> Extractor : Agrupar texto en columnas (Actividades, Responsable, Meta)
+else No se detectan tablas (Fallback)
+  Extractor -> Extractor : Analizar con Expresiones Regulares (RE_ITEM para viñetas)
+  Extractor -> Extractor : Segmentar bloques de texto y aislar responsables
+end
+Extractor --> API : Retorna lista de diccionarios de actividades
+deactivate Extractor
+
+loop Para cada actividad detectada
+  API -> DB : INSERT INTO actividades (plan_id, nombre, responsable, meta, estado="pendiente", avance=0)
+end
+
+API -> DB : Recalcular indicadores (total, completadas, avance)
+API --> Front : Retorna JSON con éxito y listado de actividades creadas
+deactivate API
+
+Front --> User : Muestra tabla con actividades detectadas para validar e iniciar seguimiento
+@enduml

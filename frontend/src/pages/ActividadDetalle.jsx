@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import * as actApi  from '../api/actividades'
 import * as evidApi from '../api/evidencias'
 import BadgeEstado from '../components/BadgeEstado'
@@ -27,9 +27,62 @@ export default function ActividadDetalle() {
   const [evFile,    setEvFile]        = useState(null)
   const [savingEv,  setSavingEv]      = useState(false)
   const [evErr,     setEvErr]         = useState('')
+  const [showEditAct, setShowEditAct] = useState(false)
+  const [editActForm, setEditActForm] = useState({ nombre: '', responsable: '', fecha_inicio: '', fecha_fin: '', meta: '', descripcion: '', avance: 0 })
+  const [savingEditAct, setSavingEditAct] = useState(false)
+  const [editActErr, setEditActErr] = useState('')
   const fileRef = useRef()
+  const navigate = useNavigate()
 
   const canEdit = user?.rol === 'admin' || user?.rol === 'editor'
+
+  const handleStartEdit = () => {
+    setEditActForm({
+      nombre: actividad.nombre || '',
+      responsable: actividad.responsable || '',
+      fecha_inicio: actividad.fecha_inicio ? actividad.fecha_inicio.slice(0, 10) : '',
+      fecha_fin: actividad.fecha_fin ? actividad.fecha_fin.slice(0, 10) : '',
+      meta: actividad.meta || '',
+      descripcion: actividad.descripcion || '',
+      avance: actividad.avance ?? 0
+    })
+    setEditActErr('')
+    setShowEditAct(true)
+  }
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault()
+    setEditActErr('')
+    setSavingEditAct(true)
+    try {
+      const { data } = await actApi.actualizar(id, {
+        nombre: editActForm.nombre,
+        responsable: editActForm.responsable || null,
+        fecha_inicio: editActForm.fecha_inicio || null,
+        fecha_fin: editActForm.fecha_fin || null,
+        meta: editActForm.meta || null,
+        descripcion: editActForm.descripcion || null,
+        avance: +editActForm.avance
+      })
+      setActividad(data)
+      setShowEditAct(false)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setEditActErr(typeof detail === 'string' ? detail : 'Error al guardar cambios')
+    } finally {
+      setSavingEditAct(false)
+    }
+  }
+
+  const handleDeleteAct = async () => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta actividad? Esta acción no se puede deshacer y borrará también las evidencias asociadas.')) return
+    try {
+      await actApi.eliminar(id)
+      navigate(`/planes/${actividad.plan_id}`)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar la actividad')
+    }
+  }
 
   const loadEvidencias = () =>
     evidApi.listar({ actividad_id: id }).then(r => setEvidencias(r.data))
@@ -101,7 +154,19 @@ export default function ActividadDetalle() {
         <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 6 }}>
           <Link to="/actividades" className="table-link">← Actividades</Link>
         </div>
-        <h1 style={{ fontSize: 17, lineHeight: 1.4 }}>{actividad.nombre}</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <h1 style={{ fontSize: 17, lineHeight: 1.4, margin: 0, flex: 1 }}>{actividad.nombre}</h1>
+          {canEdit && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary btn-sm" onClick={handleStartEdit}>
+                ✏️ Editar Actividad
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleDeleteAct} style={{ background: 'var(--red)', color: 'white' }}>
+                🗑️ Eliminar Actividad
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid-2 mb-6">
@@ -301,6 +366,97 @@ export default function ActividadDetalle() {
             value={evDesc}
             onChange={e => setEvDesc(e.target.value)}
             placeholder="Describe brevemente esta evidencia…"
+          />
+        </div>
+      </Modal>
+
+      {/* ── Modal editar actividad ────────────────────────── */}
+      <Modal
+        open={showEditAct}
+        onClose={() => { setShowEditAct(false); setEditActErr('') }}
+        title="Editar Actividad"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowEditAct(false)}>Cancelar</button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveEdit}
+              disabled={savingEditAct || !editActForm.nombre.trim()}
+            >
+              {savingEditAct ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Guardando…</> : 'Guardar cambios'}
+            </button>
+          </>
+        }
+      >
+        {editActErr && <div className="login-error" style={{ marginBottom: 12 }}>⚠️ {editActErr}</div>}
+        <div className="form-group">
+          <label className="form-label">Nombre *</label>
+          <input
+            className="form-input"
+            value={editActForm.nombre}
+            onChange={e => setEditActForm(a => ({ ...a, nombre: e.target.value }))}
+            placeholder="Descripción de la actividad"
+            required
+            autoFocus
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Responsable</label>
+          <input
+            className="form-input"
+            value={editActForm.responsable}
+            onChange={e => setEditActForm(a => ({ ...a, responsable: e.target.value }))}
+            placeholder="Nombre del responsable"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Meta</label>
+          <input
+            className="form-input"
+            value={editActForm.meta}
+            onChange={e => setEditActForm(a => ({ ...a, meta: e.target.value }))}
+            placeholder="Meta o indicador"
+          />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Fecha inicio</label>
+            <input
+              className="form-input"
+              type="date"
+              value={editActForm.fecha_inicio}
+              onChange={e => setEditActForm(a => ({ ...a, fecha_inicio: e.target.value }))}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fecha fin</label>
+            <input
+              className="form-input"
+              type="date"
+              value={editActForm.fecha_fin}
+              onChange={e => setEditActForm(a => ({ ...a, fecha_fin: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Descripción</label>
+          <textarea
+            className="form-textarea"
+            value={editActForm.descripcion}
+            onChange={e => setEditActForm(a => ({ ...a, descripcion: e.target.value }))}
+            placeholder="Describe detalladamente esta actividad…"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Porcentaje de Avance ({editActForm.avance}%)</label>
+          <input
+            className="form-input"
+            type="range"
+            min="0"
+            max="100"
+            value={editActForm.avance}
+            onChange={e => setEditActForm(a => ({ ...a, avance: +e.target.value }))}
+            style={{ width: '100%', height: '6px', background: 'var(--border)', accentColor: 'var(--violet)' }}
           />
         </div>
       </Modal>

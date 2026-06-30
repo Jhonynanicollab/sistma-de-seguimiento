@@ -3,13 +3,37 @@ Extracción automática de actividades desde el texto y tablas de un PDF de Plan
 
 Estrategia híbrida:
   1. Intenta extraer actividades estructuradas directamente desde tablas PDF usando PyMuPDF (fitz.find_tables).
-  2. Si no se encuentran tablas o actividades estructuradas, recurre a la extracción basada en expresiones regulares sobre el texto plano.
+  2. Si no se encuentran tablas nativas, busca usar la API de Google Gemini (si está configurada la API Key en el entorno).
+  3. Si no hay API Key o hay problemas de red, recurre al parser local inteligente basado en delimitación de secciones.
 """
 import re
 import fitz
+import os
+import json
 from dataclasses import dataclass
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
+
+# Intento de importación opcional del SDK de Google Generative AI
+try:
+    import google.generativeai as genai
+    from pydantic import BaseModel, Field
+    
+    # Esquemas Pydantic para salida estructurada de Gemini
+    class ActividadAI(BaseModel):
+        nombre: str = Field(description="Nombre o descripción detallada de la actividad de gestión académica")
+        responsable: Optional[str] = Field(None, description="Persona, oficina, comisión o dirección encargada de ejecutar la actividad")
+        fecha_inicio: Optional[str] = Field(None, description="Fecha de inicio en formato AAAA-MM-DD (ej: 2026-03-15) o nulo")
+        fecha_fin: Optional[str] = Field(None, description="Fecha de fin o límite en formato AAAA-MM-DD (ej: 2026-10-30) o nulo")
+        meta: Optional[str] = Field(None, description="Meta, indicador cuantitativo o resultado esperado de la actividad")
+
+    class ListaActividadesAI(BaseModel):
+        actividades: List[ActividadAI]
+
+    HAS_GEMINI_SDK = True
+except ImportError:
+    HAS_GEMINI_SDK = False
+
 
 @dataclass
 class ActividadExtraida:
@@ -20,10 +44,11 @@ class ActividadExtraida:
     meta:         Optional[str] = None
 
 
-# ── patrones regex para fallback ──────────────────────────────────────────────
+# ── patrones regex para fallback local ────────────────────────────────────────
 
-RE_ITEM       = re.compile(r"^\s*(\d{1,2}[\.\)]\s+)(.+)$", re.MULTILINE)
+RE_ITEM       = re.compile(r"^\s*([\-\*•]|\d{1,2}[\.\),\-\s]+|[a-z][\.\)]\s+)\s*(.+)$", re.MULTILINE)
 RE_FECHA      = re.compile(r"\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})\b")
+RE_TIME_RANGE = re.compile(r"\b(\d{2}[:\.]\d{2})\s*[-—–~]\s*(\d{2}[:\.]\d{2})\b")
 RE_RESPONSABLE = re.compile(r"responsable[:\s]+([A-Za-záéíóúÁÉÍÓÚñÑ\s\.\-,]+)", re.IGNORECASE)
 RE_META       = re.compile(r"meta[:\s]+(.+)", re.IGNORECASE)
 
@@ -160,11 +185,11 @@ def extraer_de_tablas(page: fitz.Page) -> List[ActividadExtraida]:
 def extraer_actividades(ruta_pdf: str, texto_fallback: str) -> List[ActividadExtraida]:
     """
     Intenta extraer actividades desde las tablas del PDF. 
-    Si no encuentra ninguna, recurre al método de texto plano/regex en el texto_fallback.
+    Si no encuentra ninguna (como en un PDF escaneado), recurre al método de fallback.
     """
     actividades: List[ActividadExtraida] = []
 
-    # ── Método 1: Extracción de Tablas ──────────────────────────────────────
+    # ── Método 1: Extracción de Tablas Nativa ─────────────────────────────────
     try:
         doc = fitz.open(ruta_pdf)
         for page in doc:
@@ -174,57 +199,231 @@ def extraer_actividades(ruta_pdf: str, texto_fallback: str) -> List[ActividadExt
     except Exception as e:
         print(f"Error al extraer de tablas del PDF: {e}")
 
-    # Si se extrajeron actividades exitosamente de las tablas, las retornamos
+    # Si se extrajeron actividades exitosamente de las tablas nativas, las retornamos
     if actividades:
         print(f"Se extrajeron {len(actividades)} actividades mediante análisis de tablas PDF.")
         return actividades
 
-    # ── Método 2: Fallback Expresiones Regulares ─────────────────────────────
-    print("No se detectaron tablas. Usando fallback de expresiones regulares en texto plano.")
+    # ── Método 2: Extracción con Inteligencia Artificial (Google Gemini API) ─
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if HAS_GEMINI_SDK and gemini_key:
+        print("[AI] Detectado GEMINI_API_KEY en el entorno. Intentando extracción inteligente con Gemini...")
+        try:
+            # Configurar API
+            genai.configure(api_key=gemini_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = f"""
+            Analiza el siguiente texto extraído mediante OCR de un documento de Plan de Trabajo de una facultad.
+            Tu tarea es identificar y estructurar la lista completa de las actividades y tareas programadas en el plan.
+            Normalmente están organizadas en secciones como "Actividades Previas", "Actividades del Evento" o "Actividades Posteriores".
+            
+            Reglas críticas:
+            1. Extrae SOLAMENTE las actividades académicas o tareas del plan.
+            2. IGNORA textos de la carátula, resoluciones de decanato, antecedentes, base legal, responsables generales y la sección del presupuesto/dinero.
+            3. Si el OCR rompió o separó las líneas de una misma actividad, únelas de forma coherente para reconstruir el nombre completo.
+            4. Trata de extraer el responsable de cada actividad (ej: Comité de Calidad, Director de Escuela, Decano, etc.).
+            5. Si hay fechas en formato de día-mes-año, conviértelas al formato AAAA-MM-DD.
+            
+            Texto del Plan de Trabajo:
+            \"\"\"
+            {texto_fallback}
+            \"\"\"
+            """
+            
+            # Ejecutar llamada con salida estructurada en JSON
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    response_mime_type="application/json",
+                    response_schema=ListaActividadesAI,
+                )
+            )
+            
+            # Cargar respuesta JSON
+            res_data = json.loads(response.text)
+            for act_data in res_data.get("actividades", []):
+                nombre = act_data.get("nombre", "").strip()
+                if len(nombre) < 5:
+                    continue
+                    
+                # Formatear fechas
+                f_ini = None
+                f_fin = None
+                
+                try:
+                    str_ini = act_data.get("fecha_inicio")
+                    if str_ini:
+                        f_ini = datetime.strptime(str_ini, "%Y-%m-%d").date()
+                except Exception:
+                    pass
+                    
+                try:
+                    str_fin = act_data.get("fecha_fin")
+                    if str_fin:
+                        f_fin = datetime.strptime(str_fin, "%Y-%m-%d").date()
+                except Exception:
+                    pass
+                    
+                actividades.append(ActividadExtraida(
+                    nombre=nombre,
+                    responsable=act_data.get("responsable"),
+                    fecha_inicio=f_ini,
+                    fecha_fin=f_fin,
+                    meta=act_data.get("meta")
+                ))
+                
+            if actividades:
+                print(f"[AI] Extracción exitosa. Se detectaron {len(actividades)} actividades usando Gemini AI.")
+                return actividades
+                
+        except Exception as ai_err:
+            print(f"[AI ERROR] Falló la extracción con Gemini: {ai_err}. Usando fallback local offline...")
+
+    # ── Método 3: Fallback Local Basado en Secciones y OCR (Offline) ──────────
+    print("Usando fallback local offline basado en delimitación de secciones.")
     
-    # Dividir en bloques por líneas en blanco
-    bloques = re.split(r"\n{2,}", texto_fallback)
-
-    for bloque in bloques:
-        lineas = bloque.strip().splitlines()
-        if not lineas:
+    lines = texto_fallback.split("\n")
+    section_lines = []
+    current_section = "general"
+    
+    RESPONSABLES_KEYWORDS = [
+        "director de escuela", "comité de calidad", "decano", "asesora", "asesor", 
+        "secretaría", "secretaria", "director de departamento", "departamento", 
+        "comisión", "coordinación", "proyección", "dirección de escuela", "comite de calidad"
+    ]
+    
+    for line in lines:
+        clean_line = line.strip()
+        if not clean_line:
             continue
+            
+        if clean_line.startswith("--- Página") or clean_line.endswith("---"):
+            continue
+            
+        lower_line = clean_line.lower()
+        
+        if any(kw in lower_line for kw in ["facultad de", "escuela profesional", "plan de trabajo", "resolucion de", "aprobado:"]):
+            current_section = "general"
+            continue
+            
+        if "actividades previas" in lower_line or "actividades preparatorias" in lower_line:
+            current_section = "previas"
+            continue
+        elif "actividades del evento" in lower_line or "desarrollo de actividades" in lower_line or "programa de actividades" in lower_line:
+            current_section = "evento"
+            continue
+        elif "actividades posteriores" in lower_line or "actividades de cierre" in lower_line:
+            current_section = "posteriores"
+            continue
+        elif ("responsables" in lower_line or "presupuesto" in lower_line) and len(clean_line) < 25:
+            current_section = "general"
+            continue
+            
+        if current_section in ["previas", "evento", "posteriores"]:
+            section_lines.append((current_section, clean_line))
 
-        for linea in lineas:
-            match = RE_ITEM.match(linea)
-            if not match:
+    pending_text = []
+    
+    for section, line in section_lines:
+        if any(hdr in line.lower() for hdr in ["actividad responsable", "hora actividad", "fecha límite", "cronograma"]):
+            continue
+            
+        has_date = RE_FECHA.search(line)
+        has_time = RE_TIME_RANGE.search(line)
+        
+        found_resp = None
+        for r_word in RESPONSABLES_KEYWORDS:
+            match = re.search(r"\b" + re.escape(r_word) + r"\b", line.lower())
+            if match:
+                start, end = match.span()
+                found_resp = line[start:].split("|")[0].split(",")[0].strip()
+                break
+                
+        if has_date or has_time or found_resp:
+            name_part = line
+            if has_date:
+                name_part = name_part.replace(has_date.group(0), "")
+            if has_time:
+                name_part = name_part.replace(has_time.group(0), "")
+            if found_resp:
+                name_part = name_part.replace(found_resp, "")
+                
+            name_part = re.sub(r"[\|\"“”'\-\_]+", " ", name_part).strip()
+            
+            full_name = " ".join(pending_text + [name_part])
+            full_name = re.sub(r"\s+", " ", full_name).strip()
+            full_name = re.sub(r"^\s*[\-\*•\d\.\,\;\:\s]+", "", full_name)
+            
+            if len(full_name) > 5:
+                fecha_ini = _parsear_fecha(line)
+                fecha_fi = None
+                all_dates = RE_FECHA.findall(line)
+                if len(all_dates) >= 2:
+                    try:
+                        d, m, a = int(all_dates[1][0]), int(all_dates[1][1]), int(all_dates[1][2])
+                        if a < 100: a += 2000
+                        fecha_fi = date(a, m, d)
+                    except ValueError:
+                        pass
+                        
+                actividades.append(ActividadExtraida(
+                    nombre=full_name,
+                    responsable=found_resp[:200] if found_resp else None,
+                    fecha_inicio=fecha_ini,
+                    fecha_fin=fecha_fi,
+                    meta=None
+                ))
+            pending_text = []
+        else:
+            clean_part = re.sub(r"[\|\"“”'\-\_]+", " ", line).strip()
+            if clean_part:
+                pending_text.append(clean_part)
+                
+    if not actividades:
+        print("No se identificaron las secciones específicas. Usando mapeo lineal por viñetas.")
+        bloques = re.split(r"\n{2,}", texto_fallback)
+        for bloque in bloques:
+            bloque_text = bloque.strip()
+            if not bloque_text:
                 continue
-
-            nombre = match.group(2).strip()
-            if len(nombre) < 8:
+            matches = list(RE_ITEM.finditer(bloque_text))
+            if not matches:
                 continue
-
-            actividad = ActividadExtraida(nombre=nombre)
-
-            resp = RE_RESPONSABLE.search(bloque)
-            if resp:
-                actividad.responsable = resp.group(1).strip()[:200]
-
-            meta = RE_META.search(bloque)
-            if meta:
-                actividad.meta = meta.group(1).strip()[:300]
-
-            fechas = RE_FECHA.findall(bloque)
-            if len(fechas) >= 1:
-                try:
-                    d, m, a = int(fechas[0][0]), int(fechas[0][1]), int(fechas[0][2])
-                    if a < 100: a += 2000
-                    actividad.fecha_inicio = date(a, m, d)
-                except ValueError:
-                    pass
-            if len(fechas) >= 2:
-                try:
-                    d, m, a = int(fechas[1][0]), int(fechas[1][1]), int(fechas[1][2])
-                    if a < 100: a += 2000
-                    actividad.fecha_fin = date(a, m, d)
-                except ValueError:
-                    pass
-
-            actividades.append(actividad)
+            for idx, match in enumerate(matches):
+                start_pos = match.start()
+                end_pos = matches[idx + 1].start() if idx + 1 < len(matches) else len(bloque_text)
+                segmento = bloque_text[start_pos:end_pos]
+                
+                if segmento.strip().startswith("--- Página"):
+                    continue
+                    
+                nombre = match.group(2).strip()
+                if len(nombre) < 8 or any(kw in nombre.lower() for kw in ["facultad de", "escuela profesional", "plan de trabajo"]):
+                    continue
+                    
+                actividad = ActividadExtraida(nombre=nombre)
+                resp = RE_RESPONSABLE.search(segmento)
+                if resp:
+                    actividad.responsable = resp.group(1).strip()[:200]
+                meta = RE_META.search(segmento)
+                if meta:
+                    actividad.meta = meta.group(1).strip()[:300]
+                fechas = RE_FECHA.findall(segmento)
+                if len(fechas) >= 1:
+                    try:
+                        d, m, a = int(fechas[0][0]), int(fechas[0][1]), int(fechas[0][2])
+                        if a < 100: a += 2000
+                        actividad.fecha_inicio = date(a, m, d)
+                    except ValueError:
+                        pass
+                if len(fechas) >= 2:
+                    try:
+                        d, m, a = int(fechas[1][0]), int(fechas[1][1]), int(fechas[1][2])
+                        if a < 100: a += 2000
+                        actividad.fecha_fin = date(a, m, d)
+                    except ValueError:
+                        pass
+                actividades.append(actividad)
 
     return actividades

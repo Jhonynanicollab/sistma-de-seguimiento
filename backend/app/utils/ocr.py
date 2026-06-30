@@ -5,7 +5,7 @@ Extracción de texto desde PDFs.
 """
 import fitz          # PyMuPDF
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageEnhance
 import io
 
 # Ruta al ejecutable de Tesseract en Windows
@@ -25,7 +25,9 @@ def extraer_texto_pagina_ocr(page: fitz.Page) -> str:
     mat = fitz.Matrix(2, 2)          # escala x2 para mejor calidad OCR
     pix = page.get_pixmap(matrix=mat)
     img_bytes = pix.tobytes("png")
-    img = Image.open(io.BytesIO(img_bytes))
+    img = Image.open(io.BytesIO(img_bytes)).convert("L") # Escala de grises
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(2.0) # Duplicar contraste para mayor nitidez
     return pytesseract.image_to_string(img, lang="spa").strip()
 
 

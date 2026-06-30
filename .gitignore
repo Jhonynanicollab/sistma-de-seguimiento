@@ -21,3 +21,13 @@ backend/uploads/evidencias/*
 
 # DB
 *.sqlite3
+
+# Logs
+*.log
+backend.log
+frontend.log
+
+# JMeter testing outputs
+backend/tests/jmeter.log
+backend/tests/resultados.jtl
+backend/tests/reporte-grafico/
