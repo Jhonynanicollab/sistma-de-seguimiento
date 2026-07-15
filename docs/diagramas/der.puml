@@ -22,6 +22,7 @@ table(direcciones) {
 table(usuarios) {
   + primary_key(id) : INTEGER [PK]
   --
+  + foreign_key(direccion_id) : INTEGER [FK -> direcciones.id, NULLABLE]
   nombre : VARCHAR(200) [NOT NULL]
   email : VARCHAR(200) [NOT NULL, UNIQUE]
   hashed_password : VARCHAR(255) [NOT NULL]
@@ -64,6 +65,7 @@ table(evidencias) {
 
 ' Relaciones con multiplicidad
 direcciones "1" -- "0..*" planes_trabajo : "tiene asignados"
+direcciones "0..1" -- "0..*" usuarios : "gestiona / asignado a"
 planes_trabajo "1" -- "0..*" actividades : "se desglosa en"
 actividades "1" -- "0..*" evidencias : "se respalda con"
 

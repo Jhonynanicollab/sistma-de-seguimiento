@@ -16,6 +16,7 @@ class UsuarioResponse(BaseModel):
     email:  str
     rol:    RolUsuario
     activo: bool
+    direccion_id: Optional[int] = None
 
     class Config:
         from_attributes = True

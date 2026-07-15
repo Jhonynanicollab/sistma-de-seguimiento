@@ -6,6 +6,8 @@ from app.models.usuario import Usuario
 from app.routers.auth import get_current_user
 from app.services import indicadores as svc
 
+from typing import Optional
+
 router = APIRouter(
     prefix="/dashboard",
     tags=["Dashboard"]
@@ -14,6 +16,8 @@ router = APIRouter(
 
 @router.get("/")
 def dashboard_global(
+    anio: Optional[int] = None,
+    semestre: Optional[str] = None,
     db: Session = Depends(get_db),
     _: Usuario  = Depends(get_current_user)
 ):
@@ -24,11 +28,13 @@ def dashboard_global(
     - % de cumplimiento global
     - Avance promedio
     """
-    return svc.resumen_global(db)
+    return svc.resumen_global(db, anio=anio, semestre=semestre)
 
 
 @router.get("/por-direccion")
 def dashboard_por_direccion(
+    anio: Optional[int] = None,
+    semestre: Optional[str] = None,
     db: Session = Depends(get_db),
     _: Usuario  = Depends(get_current_user)
 ):
@@ -36,7 +42,7 @@ def dashboard_por_direccion(
     Indicadores desglosados por cada dirección institucional.
     Útil para las tarjetas y la tabla resumen del frontend.
     """
-    return svc.resumen_por_direccion(db)
+    return svc.resumen_por_direccion(db, anio=anio, semestre=semestre)
 
 
 @router.get("/plan/{plan_id}")

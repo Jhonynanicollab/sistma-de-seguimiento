@@ -169,6 +169,8 @@ class Usuario {
   +String hashed_password
   +RolUsuario rol
   +Boolean activo
+  +int direccion_id
+  +Direccion direccion
 }
 
 class Direccion {
@@ -215,9 +217,10 @@ class Evidencia {
   +Actividad actividad
 }
 
-Usuario --> RolUsuario
-Actividad --> EstadoActividad
+Usuario --> RolUsuario : posee un rol
+Actividad --> EstadoActividad : posee un estado
 Direccion "1" *-- "0..*" PlanTrabajo : contiene >
+Direccion "0..1" <-- "0..*" Usuario : gestiona <
 PlanTrabajo "1" *-- "0..*" Actividad : contiene >
 Actividad "1" *-- "0..*" Evidencia : posee evidencias de respaldo >
 @enduml
@@ -375,6 +378,7 @@ table(direcciones) {
 table(usuarios) {
   + primary_key(id) : INTEGER [PK]
   --
+  + foreign_key(direccion_id) : INTEGER [FK -> direcciones.id, NULLABLE]
   nombre : VARCHAR(200) [NOT NULL]
   email : VARCHAR(200) [NOT NULL, UNIQUE]
   hashed_password : VARCHAR(255) [NOT NULL]
@@ -416,6 +420,7 @@ table(evidencias) {
 }
 
 direcciones "1" -- "0..*" planes_trabajo : "tiene asignados"
+direcciones "0..1" -- "0..*" usuarios : "gestiona / asignado a"
 planes_trabajo "1" -- "0..*" actividades : "se desglosa en"
 actividades "1" -- "0..*" evidencias : "se respalda con"
 @enduml
@@ -444,7 +449,7 @@ La siguiente matriz presenta el estado actual del sistema y la ubicación físic
 | **RF13** | Gestionar estados: Pendiente, Cumplida y No Cumplida. | Alta | **Cumplido** | Mapeo en el backend (`EstadoActividad`) y componentes reactivos en frontend (`EstadoBadge`). |
 | **RF14** | Calcular porcentaje de cumplimiento por plan. | Alta | **Cumplido** | `/app/services/indicadores.py` (recalculado atómico automático en base a la cantidad de completadas/total). |
 | **RF15** | Calcular porcentaje de cumplimiento por oficina. | Alta | **Cumplido** | `/app/services/indicadores.py` (agregados por dirección en endpoints de dashboard). |
-| **RF16** | Generar indicadores de cumplimiento por semestre. | Alta | *Pendiente* | Requiere agregar la columna `semestre` en el modelo `PlanTrabajo`. |
+| **RF16** | Generar indicadores de cumplimiento por semestre. | Alta | **Cumplido** | **Backend:** `/app/models/plan_trabajo.py` (columna `semestre`) e `/app/services/indicadores.py` (filtros dinámicos en consultas SQL).<br>**Frontend:** `/pages/Planes.jsx` (creación y visualización) y `/pages/Dashboard.jsx` (filtros reactivos). |
 | **RF17** | Generar indicadores de cumplimiento por año. | Alta | **Cumplido** | `/app/services/indicadores.py` (filtrado por la propiedad `anio` en la consulta SQL). |
 | **RF18** | Mostrar dashboards institucionales con gráficos. | Alta | **Cumplido** | **Frontend:** `/pages/Dashboard.jsx` (gráficos dinámicos con la librería Recharts). |
 | **RF19** | Visualizar el detalle de actividades por oficina. | Alta | **Cumplido** | **Frontend:** Panel interactivo en `/pages/PlanDetalle.jsx`. |

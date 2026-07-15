@@ -11,6 +11,7 @@ import Modal       from '../components/Modal'
 import * as dashApi from '../api/dashboard'
 import * as planesApi from '../api/planes'
 import * as actApi from '../api/actividades'
+import { useAuth } from '../context/AuthContext'
 
 /* ── Colores por estado de actividad ─────────────────────── */
 const STATE_COLOR = {
@@ -39,57 +40,55 @@ const CATEGORIES = [
     icon: '🏛️',
     color: '#3b82f6',
     items: [
-      { name: 'Decanato', code: 'DEC' }
+      { name: 'DECANO', code: 'DEC' }
     ]
   },
   {
     id: 's2',
-    title: 'Dirección académica',
+    title: 'Direcciones Académicas',
     icon: '🏫',
     color: '#3b82f6',
     items: [
-      { name: 'Dirección de Escuela Profesional', code: 'DEP' },
-      { name: 'Dirección de Investigación', code: 'DI' },
-      { name: 'Dirección de Posgrado', code: 'DPG' },
-      { name: 'Dirección de Proyección Social y Extensión Cultural', code: 'DPSEC' }
+      { name: 'DIRECTOR DE ESCUELA', code: 'DEP' },
+      { name: 'DIRECTOR DE DEPARTAMENTO ACADEMICO', code: 'DDA' },
+      { name: 'DIRECTOR DE LA UNIDAD DE POSGRADO', code: 'DUP' },
+      { name: 'DIRECTOR DE LA UNIDAD DE INVESTIGACION', code: 'DUI' }
     ]
   },
   {
     id: 's3',
-    title: 'Oficinas administrativas',
+    title: 'Oficinas y Responsables',
     icon: '⚙️',
     color: '#8b5cf6',
     items: [
-      { name: 'Oficina de Acreditación y Calidad Educativa', code: 'OACE' },
-      { name: 'Oficina de Tutoría y Orientación al Estudiante', code: 'OTOE' },
-      { name: 'Oficina de Prácticas Pre-Profesionales', code: 'OPPP' },
-      { name: 'Oficina de Grados y Títulos', code: 'OGT' },
-      { name: 'Secretaría Académica', code: 'SA' }
+      { name: 'SECRETARIA TECNICA', code: 'ST' },
+      { name: 'RESPONSABLE DE INFRAESTRUCTURA', code: 'INFRA' },
+      { name: 'RESPONSABLE DE PAGINA WEB DEL PROGRAMA', code: 'WEB' },
+      { name: 'RESPONSABLE DE POLITICAS AMBIENTALES', code: 'AMB' }
     ]
   },
   {
     id: 's4',
-    title: 'Comisiones permanentes',
+    title: 'Comités y Acreditación',
     icon: '👥',
     color: '#10b981',
     items: [
-      { name: 'Comisión de Currículo y Plan de Estudios', code: 'COM-CURR' },
-      { name: 'Comisión de Investigación y Proyectos', code: 'COM-INV' },
-      { name: 'Comisión de Bienestar Universitario', code: 'COM-BU' },
-      { name: 'Comisión de Autoevaluación y Acreditación', code: 'COM-ACRED' },
-      { name: 'Comisión de Bolsa de Trabajo y Egresados', code: 'COM-EGR' }
+      { name: 'PRESIDENTE DE COMITÉ DE CALIDAD Y ACREDITACION', code: 'CCA' }
     ]
   },
   {
     id: 's5',
-    title: 'Comisiones especiales',
+    title: 'Coordinaciones de Apoyo',
     icon: '📅',
     color: '#f59e0b',
     items: [
-      { name: 'Comisión de Admisión', code: 'COM-ADM' },
-      { name: 'Comisión de Grados y Títulos', code: 'COM-GT' },
-      { name: 'Comisión de Evaluación Docente', code: 'COM-EVAL' },
-      { name: 'Comisión de Responsabilidad Social Universitaria', code: 'COM-RSU' }
+      { name: 'COORDINADOR DE TUTORIA', code: 'TUT' },
+      { name: 'COORDINADOR DE CONVENIOS', code: 'CONV' },
+      { name: 'COORDINADOR DE LABORATORIO Y GABINETE', code: 'LAB' },
+      { name: 'COORDINADOR DE SEGUIMIENTO DE EGRESADO', code: 'EGR' },
+      { name: 'COORDINADOR DE RESPONSABILIDAD SOCIAL', code: 'RSU' },
+      { name: 'COORDINADOR DE BIBLIOTECA ESPECIAL', code: 'BIB' },
+      { name: 'COORDINADOR DE PRACTICAS PRE PROFESIONALES', code: 'PPP' }
     ]
   }
 ]
@@ -117,11 +116,16 @@ function BarTooltip({ active, payload }) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth()
   const [global,  setGlobal]  = useState(null)
   const [porDir,  setPorDir]  = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // Filtros de semestre y año
+  const [anioFilter, setAnioFilter] = useState('2026')
+  const [semestreFilter, setSemestreFilter] = useState('')
 
   // Estados para desglose por oficina seleccionada
   const [selectedUnit, setSelectedUnit] = useState(null)
@@ -156,7 +160,10 @@ export default function Dashboard() {
     setSelectedUnit({ ...matched, code, color: categoryColor })
     setLoadingUnit(true)
     try {
-      const { data: plans } = await planesApi.listar({ direccion_id: matched.direccion_id })
+      const params = { direccion_id: matched.direccion_id }
+      if (anioFilter) params.anio = parseInt(anioFilter, 10)
+      if (semestreFilter) params.semestre = semestreFilter
+      const { data: plans } = await planesApi.listar(params)
       setUnitPlans(plans)
       
       const allActs = []
@@ -173,16 +180,24 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    Promise.all([dashApi.getGlobal(), dashApi.getPorDireccion()])
+    setLoading(true)
+    const params = {}
+    if (anioFilter) params.anio = parseInt(anioFilter, 10)
+    if (semestreFilter) params.semestre = semestreFilter
+
+    Promise.all([
+      dashApi.getGlobal(params),
+      dashApi.getPorDireccion(params)
+    ])
       .then(([g, d]) => {
         setGlobal(g.data)
         setPorDir(d.data)
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [anioFilter, semestreFilter])
 
-  // Sincronizar la unidad seleccionada con la URL (?unit=CODIGO)
+  // Sincronizar la unidad seleccionada con la URL (?unit=CODIGO) o el usuario logueado
   useEffect(() => {
     if (!porDir || porDir.length === 0) return
 
@@ -204,9 +219,29 @@ export default function Dashboard() {
         setSelectedUnit(null)
       }
     } else {
-      setSelectedUnit(null)
+      // Si el usuario pertenece a una oficina y NO es admin, auto-seleccionamos su oficina por defecto
+      if (user && user.direccion_id && user.rol !== 'admin') {
+        const matched = porDir.find(d => d.direccion_id === user.direccion_id)
+        if (matched) {
+          let code = "DIR"
+          let color = "#3b82f6"
+          for (const cat of CATEGORIES) {
+            const item = cat.items.find(i => i.name.toLowerCase().trim() === matched.direccion.toLowerCase().trim())
+            if (item) {
+              code = item.code
+              color = cat.color
+              break
+            }
+          }
+          handleSelectUnit(matched.direccion, code, color)
+        } else {
+          setSelectedUnit(null)
+        }
+      } else {
+        setSelectedUnit(null)
+      }
     }
-  }, [urlUnitCode, porDir])
+  }, [urlUnitCode, porDir, user])
 
   if (loading) return (
     <div className="loading-screen">
@@ -257,8 +292,36 @@ export default function Dashboard() {
   return (
     <div className="animate-fade">
       <div className="page-header">
-        <h1>Dashboard General</h1>
-        <p>Indicadores de cumplimiento del Plan de Trabajo Institucional — FINESI · UNAP</p>
+        <div>
+          <h1>Dashboard General</h1>
+          <p>Indicadores de cumplimiento del Plan de Trabajo Institucional — FINESI · UNAP</p>
+        </div>
+        
+        <div className="page-header__actions" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <select
+            className="form-select"
+            value={anioFilter}
+            onChange={e => setAnioFilter(e.target.value)}
+            style={{ width: '150px' }}
+          >
+            <option value="">Todos los años</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+          </select>
+          
+          <select
+            className="form-select"
+            value={semestreFilter}
+            onChange={e => setSemestreFilter(e.target.value)}
+            style={{ width: '180px' }}
+          >
+            <option value="">Todos los semestres</option>
+            <option value="I">Semestre I</option>
+            <option value="II">Semestre II</option>
+          </select>
+        </div>
       </div>
 
       <div className="dashboard-main-panel" style={{ width: '100%' }}>

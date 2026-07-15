@@ -17,57 +17,55 @@ const CATEGORIES = [
     tablerIcon: 'ti ti-building',
     color: '#3b82f6',
     items: [
-      { name: 'Decanato', code: 'DEC' }
+      { name: 'DECANO', code: 'DEC' }
     ]
   },
   {
     id: 's2',
-    title: 'Dirección académica',
+    title: 'Direcciones Académicas',
     tablerIcon: 'ti ti-home',
     color: '#3b82f6',
     items: [
-      { name: 'Dirección de Escuela Profesional', code: 'DEP' },
-      { name: 'Dirección de Investigación', code: 'DI' },
-      { name: 'Dirección de Posgrado', code: 'DPG' },
-      { name: 'Dirección de Proyección Social y Extensión Cultural', code: 'DPSEC' }
+      { name: 'DIRECTOR DE ESCUELA', code: 'DEP' },
+      { name: 'DIRECTOR DE DEPARTAMENTO ACADEMICO', code: 'DDA' },
+      { name: 'DIRECTOR DE LA UNIDAD DE POSGRADO', code: 'DUP' },
+      { name: 'DIRECTOR DE LA UNIDAD DE INVESTIGACION', code: 'DUI' }
     ]
   },
   {
     id: 's3',
-    title: 'Oficinas administrativas',
+    title: 'Oficinas y Responsables',
     tablerIcon: 'ti ti-settings',
     color: '#8b5cf6',
     items: [
-      { name: 'Oficina de Acreditación y Calidad Educativa', code: 'OACE' },
-      { name: 'Oficina de Tutoría y Orientación al Estudiante', code: 'OTOE' },
-      { name: 'Oficina de Prácticas Pre-Profesionales', code: 'OPPP' },
-      { name: 'Oficina de Grados y Títulos', code: 'OGT' },
-      { name: 'Secretaría Académica', code: 'SA' }
+      { name: 'SECRETARIA TECNICA', code: 'ST' },
+      { name: 'RESPONSABLE DE INFRAESTRUCTURA', code: 'INFRA' },
+      { name: 'RESPONSABLE DE PAGINA WEB DEL PROGRAMA', code: 'WEB' },
+      { name: 'RESPONSABLE DE POLITICAS AMBIENTALES', code: 'AMB' }
     ]
   },
   {
     id: 's4',
-    title: 'Comisiones permanentes',
+    title: 'Comités y Acreditación',
     tablerIcon: 'ti ti-users',
     color: '#10b981',
     items: [
-      { name: 'Comisión de Currículo y Plan de Estudios', code: 'COM-CURR' },
-      { name: 'Comisión de Investigación y Proyectos', code: 'COM-INV' },
-      { name: 'Comisión de Bienestar Universitario', code: 'COM-BU' },
-      { name: 'Comisión de Autoevaluación y Acreditación', code: 'COM-ACRED' },
-      { name: 'Comisión de Bolsa de Trabajo y Egresados', code: 'COM-EGR' }
+      { name: 'PRESIDENTE DE COMITÉ DE CALIDAD Y ACREDITACION', code: 'CCA' }
     ]
   },
   {
     id: 's5',
-    title: 'Comisiones especiales',
+    title: 'Coordinaciones de Apoyo',
     tablerIcon: 'ti ti-calendar-event',
     color: '#f59e0b',
     items: [
-      { name: 'Comisión de Admisión', code: 'COM-ADM' },
-      { name: 'Comisión de Grados y Títulos', code: 'COM-GT' },
-      { name: 'Comisión de Evaluación Docente', code: 'COM-EVAL' },
-      { name: 'Comisión de Responsabilidad Social Universitaria', code: 'COM-RSU' }
+      { name: 'COORDINADOR DE TUTORIA', code: 'TUT' },
+      { name: 'COORDINADOR DE CONVENIOS', code: 'CONV' },
+      { name: 'COORDINADOR DE LABORATORIO Y GABINETE', code: 'LAB' },
+      { name: 'COORDINADOR DE SEGUIMIENTO DE EGRESADO', code: 'EGR' },
+      { name: 'COORDINADOR DE RESPONSABILIDAD SOCIAL', code: 'RSU' },
+      { name: 'COORDINADOR DE BIBLIOTECA ESPECIAL', code: 'BIB' },
+      { name: 'COORDINADOR DE PRACTICAS PRE PROFESIONALES', code: 'PPP' }
     ]
   }
 ]

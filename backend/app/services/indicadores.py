@@ -6,26 +6,54 @@ from app.models.plan_trabajo import PlanTrabajo
 from app.models.actividad import Actividad, EstadoActividad
 
 
-def resumen_global(db: Session) -> dict:
+def resumen_global(db: Session, anio: int = None, semestre: str = None) -> dict:
     """Indicadores generales de todo el sistema."""
+    plan_query = db.query(PlanTrabajo)
+    if anio:
+        plan_query = plan_query.filter(PlanTrabajo.anio == anio)
+    if semestre:
+        plan_query = plan_query.filter(PlanTrabajo.semestre == semestre)
+    
+    planes = plan_query.all()
+    plan_ids = [p.id for p in planes]
+    
     total_direcciones = db.query(func.count(Direccion.id)).scalar()
-    total_planes      = db.query(func.count(PlanTrabajo.id)).scalar()
-    total_actividades = db.query(func.count(Actividad.id)).scalar()
+    
+    if not plan_ids and (anio or semestre):
+        return {
+            "total_direcciones":  total_direcciones,
+            "total_planes":       0,
+            "total_actividades":  0,
+            "por_estado":         {e.value: 0 for e in EstadoActividad},
+            "pct_cumplimiento":   0.0,
+            "avance_promedio":    0.0,
+        }
+
+    total_planes = len(plan_ids) if (anio or semestre) else db.query(func.count(PlanTrabajo.id)).scalar()
+
+    act_query = db.query(Actividad)
+    if anio or semestre:
+        act_query = act_query.filter(Actividad.plan_id.in_(plan_ids))
+    total_actividades = act_query.count()
 
     # Conteo por estado
-    estados = db.query(
-        Actividad.estado,
-        func.count(Actividad.id)
-    ).group_by(Actividad.estado).all()
+    estados_query = db.query(Actividad.estado, func.count(Actividad.id))
+    if anio or semestre:
+        estados_query = estados_query.filter(Actividad.plan_id.in_(plan_ids))
+    estados = estados_query.group_by(Actividad.estado).all()
+    
     por_estado = {e.value: 0 for e in EstadoActividad}
     for estado, conteo in estados:
         por_estado[estado.value] = conteo
 
     completadas = por_estado.get("completada", 0)
-    pct_cumplimiento = round((completadas / total_actividades * 100), 1) if total_actividades else 0
+    pct_cumplimiento = round((completadas / total_actividades * 100), 1) if total_actividades else 0.0
 
     # Avance promedio global
-    avance_promedio = db.query(func.avg(Actividad.avance)).scalar()
+    avance_query = db.query(func.avg(Actividad.avance))
+    if anio or semestre:
+        avance_query = avance_query.filter(Actividad.plan_id.in_(plan_ids))
+    avance_promedio = avance_query.scalar()
     avance_promedio = round(float(avance_promedio), 1) if avance_promedio else 0.0
 
     return {
@@ -38,13 +66,19 @@ def resumen_global(db: Session) -> dict:
     }
 
 
-def resumen_por_direccion(db: Session) -> list:
+def resumen_por_direccion(db: Session, anio: int = None, semestre: str = None) -> list:
     """Indicadores agrupados por dirección."""
     direcciones = db.query(Direccion).all()
     resultado = []
 
     for dir_ in direcciones:
-        planes = db.query(PlanTrabajo).filter(PlanTrabajo.direccion_id == dir_.id).all()
+        plan_query = db.query(PlanTrabajo).filter(PlanTrabajo.direccion_id == dir_.id)
+        if anio:
+            plan_query = plan_query.filter(PlanTrabajo.anio == anio)
+        if semestre:
+            plan_query = plan_query.filter(PlanTrabajo.semestre == semestre)
+        
+        planes = plan_query.all()
         plan_ids = [p.id for p in planes]
 
         total_act = 0
@@ -61,7 +95,7 @@ def resumen_por_direccion(db: Session) -> list:
                     .filter(Actividad.plan_id.in_(plan_ids)).scalar()
             avance_sum = round(float(avg), 1) if avg else 0.0
 
-        pct = round((completadas / total_act * 100), 1) if total_act else 0
+        pct = round((completadas / total_act * 100), 1) if total_act else 0.0
 
         resultado.append({
             "direccion_id":    dir_.id,

@@ -22,6 +22,8 @@ class Usuario {
   +String hashed_password
   +RolUsuario rol
   +Boolean activo
+  +int direccion_id
+  +Direccion direccion
 }
 
 class Direccion {
@@ -73,6 +75,7 @@ Usuario --> RolUsuario : posee un rol
 Actividad --> EstadoActividad : posee un estado
 
 Direccion "1" *-- "0..*" PlanTrabajo : contiene >
+Direccion "0..1" <-- "0..*" Usuario : gestiona <
 PlanTrabajo "1" *-- "0..*" Actividad : contiene >
 Actividad "1" *-- "0..*" Evidencia : posee evidencias de respaldo >
 

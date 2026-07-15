@@ -13,9 +13,9 @@ export default function Planes() {
   const [planes,  setPlanes]  = useState([])
   const [dirs,    setDirs]    = useState([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({ anio: '', direccion_id: '' })
+  const [filters, setFilters] = useState({ anio: '', direccion_id: '', semestre: '' })
   const [showModal, setShowModal] = useState(false)
-  const [form,    setForm]    = useState({ direccion_id: '', anio: 2026, semestre: 1, titulo: '' })
+  const [form,    setForm]    = useState({ direccion_id: '', anio: 2026, semestre: 'I', titulo: '' })
   const [saving,  setSaving]  = useState(false)
   const [saveErr, setSaveErr] = useState('')
 
@@ -32,6 +32,7 @@ export default function Planes() {
   const filtered = planes.filter(p => {
     if (filters.anio && p.anio !== +filters.anio) return false
     if (filters.direccion_id && p.direccion_id !== +filters.direccion_id) return false
+    if (filters.semestre && p.semestre !== filters.semestre) return false
     return true
   })
 
@@ -43,11 +44,12 @@ export default function Planes() {
       const { data } = await planesApi.crear({
         direccion_id: +form.direccion_id,
         anio:         +form.anio,
-        nombre:       form.titulo || `Plan de Trabajo ${form.anio}`,
+        semestre:     form.semestre,
+        nombre:       form.titulo || `Plan de Trabajo ${form.anio}-${form.semestre}`,
       })
       setPlanes(prev => [data, ...prev])
       setShowModal(false)
-      setForm({ direccion_id: '', anio: 2026, semestre: 1, titulo: '' })
+      setForm({ direccion_id: '', anio: 2026, semestre: 'I', titulo: '' })
     } catch (err) {
       const detail = err.response?.data?.detail
       setSaveErr(typeof detail === 'string' ? detail : (Array.isArray(detail) ? detail.map(e => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join(', ') : 'Error al crear plan'))
@@ -64,24 +66,34 @@ export default function Planes() {
         <h1>Planes de Trabajo</h1>
         <p>Registro y seguimiento de planes por dirección y período académico</p>
         <div className="page-header__actions">
-          <select
-            id="filtro-anio"
-            className="form-select"
-            value={filters.anio}
-            onChange={e => setFilters(f => ({ ...f, anio: e.target.value }))}
-          >
-            <option value="">Todos los años</option>
-            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <select
-            id="filtro-direccion"
-            className="form-select"
-            value={filters.direccion_id}
-            onChange={e => setFilters(f => ({ ...f, direccion_id: e.target.value }))}
-          >
-            <option value="">Todas las direcciones</option>
-            {dirs.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-          </select>
+        <select
+          id="filtro-anio"
+          className="form-select"
+          value={filters.anio}
+          onChange={e => setFilters(f => ({ ...f, anio: e.target.value }))}
+        >
+          <option value="">Todos los años</option>
+          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select
+          id="filtro-semestre"
+          className="form-select"
+          value={filters.semestre}
+          onChange={e => setFilters(f => ({ ...f, semestre: e.target.value }))}
+        >
+          <option value="">Todos los semestres</option>
+          <option value="I">Semestre I</option>
+          <option value="II">Semestre II</option>
+        </select>
+        <select
+          id="filtro-direccion"
+          className="form-select"
+          value={filters.direccion_id}
+          onChange={e => setFilters(f => ({ ...f, direccion_id: e.target.value }))}
+        >
+          <option value="">Todas las direcciones</option>
+          {dirs.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+        </select>
           <div style={{ flex: 1 }} />
           <span className="text-dim" style={{ fontSize: 12 }}>
             {filtered.length} plan{filtered.length !== 1 ? 'es' : ''}
@@ -197,8 +209,8 @@ export default function Planes() {
           <div className="form-group">
             <label className="form-label">Semestre *</label>
             <select className="form-select" value={form.semestre} onChange={e => setForm(f => ({ ...f, semestre: e.target.value }))}>
-              <option value={1}>Semestre I</option>
-              <option value={2}>Semestre II</option>
+              <option value="I">Semestre I</option>
+              <option value="II">Semestre II</option>
             </select>
           </div>
         </div>

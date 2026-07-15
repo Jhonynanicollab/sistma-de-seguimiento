@@ -21,6 +21,8 @@ class PlanTrabajo(Base):
 
     anio = Column(Integer, nullable=False)
 
+    semestre = Column(String(10), nullable=False, default="I")  # "I" o "II"
+
     archivo_pdf = Column(String(255), nullable=True)
 
     fecha_registro = Column(

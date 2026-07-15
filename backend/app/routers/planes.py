@@ -53,6 +53,7 @@ def crear_plan(
 def listar_planes(
     direccion_id: Optional[int] = None,
     anio: Optional[int] = None,
+    semestre: Optional[str] = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_user)
 ):
@@ -61,6 +62,8 @@ def listar_planes(
         query = query.filter(PlanTrabajo.direccion_id == direccion_id)
     if anio:
         query = query.filter(PlanTrabajo.anio == anio)
+    if semestre:
+        query = query.filter(PlanTrabajo.semestre == semestre)
     return query.all()
 
 

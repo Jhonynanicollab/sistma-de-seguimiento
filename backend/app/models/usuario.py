@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.database import Base
 import enum
 
@@ -18,3 +19,7 @@ class Usuario(Base):
     hashed_password  = Column(String(255), nullable=False)
     rol              = Column(Enum(RolUsuario), default=RolUsuario.lector, nullable=False)
     activo           = Column(Boolean, default=True)
+    
+    # Relación con la Dirección / Oficina
+    direccion_id     = Column(Integer, ForeignKey("direcciones.id", ondelete="SET NULL"), nullable=True)
+    direccion        = relationship("Direccion")
